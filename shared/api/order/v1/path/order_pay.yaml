@@ -1,0 +1,80 @@
+post:
+  tags:
+    - Order
+  summary: Оплата заказа
+  operationId: PayOrder
+  parameters:
+        - $ref: "../params/order_uuid.yaml"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../components/pay_order_request.yaml"
+  responses:
+    '200':
+      description: Заказ успешно оплачен
+      content:
+        application/json:
+          schema:
+            $ref: "../components/pay_order_response.yaml"
+    '404':
+      description: Заказ с указанным UUID не найден
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/not_found_error.yaml"
+    '400':
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/bad_request_error.yaml"
+    '401':
+      description: Неавторизованный доступ
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/unauthorized_error.yaml"
+    '403':
+      description: Доступ запрещен
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/forbidden_error.yaml"
+    '422':
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/validation_error.yaml"
+    '429':
+      description: Превышен лимит запросов
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/rate_limit_error.yaml"
+    '500':
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/internal_server_error.yaml"
+    '502':
+      description: Плохой шлюз
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/bad_gateway_error.yaml"
+    '503':
+      description: Сервис недоступен
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/service_unavailable_error.yaml"
+    default:
+      description: Непредвиденная ошибка
+      content:
+        application/json:
+          schema:
+            $ref: "../components/errors/generic_error.yaml"

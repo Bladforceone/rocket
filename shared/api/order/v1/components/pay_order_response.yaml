@@ -1,0 +1,7 @@
+type: object
+properties:
+  transaction_uuid:
+    type: string
+    format: uuid
+    description: Уникальный идентификатор транзакции, связанный с оплатой заказа.
+    example: "423e4567-e89b-12d3-a456-426614174000"

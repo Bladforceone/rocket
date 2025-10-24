@@ -1,0 +1,19 @@
+type: object
+properties:
+  user_uuid:
+    type: string
+    format: uuid
+    description: Уникальный идентификатор пользователя, создающего заказ
+    example: "123e4567-e89b-12d3-a456-426614174000"
+  part_uuids:
+    type: array
+    description: Список уникальных идентификаторов частей, включенных в заказ
+    items:
+      type: string
+      format: uuid
+      example:
+      - "223e4567-e89b-12d3-a456-426614174000"
+      - "323e4567-e89b-12d3-a456-426614174000"
+required:
+  - user_uuid
+  - part_uuids
