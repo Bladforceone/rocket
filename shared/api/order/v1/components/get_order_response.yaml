@@ -1,4 +1,34 @@
 type: object
+required:
+  - order_uuid
+  - user_uuid
+  - part_uuids
+  - total_price
+  - status
 properties:
-    order:
-      $ref: "../components/order_dto.yaml"
+  order_uuid:
+    type: string
+    format: uuid
+    description: Уникальный идентификатор заказа.
+  user_uuid:
+    type: string
+    format: uuid
+    description: Уникальный идентификатор пользователя, сделавшего заказ.
+  part_uuids:
+    type: array
+    items:
+      type: string
+      format: uuid
+    description: Список уникальных идентификаторов частей, включенных в заказ.
+  total_price:
+    type: number
+    format: double
+    description: Общая стоимость заказа.
+  transaction_uuid:
+    type: string
+    format: uuid
+    description: Уникальный идентификатор транзакции, связанный с заказом.
+  payment_method:
+    $ref: "../components/enums/payment_method.yaml"
+  status:
+    $ref: "../components/enums/order_status.yaml"
