@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -16,53 +15,76 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	order "github.com/Bladforceone/rocket/shared/pkg/openapi/order/v1"
+	"github.com/Bladforceone/rocket/order/internal/inventory"
+	"github.com/Bladforceone/rocket/order/internal/payment"
+	"github.com/Bladforceone/rocket/order/internal/storage"
+	orderdesc "github.com/Bladforceone/rocket/shared/pkg/openapi/order/v1"
+	inventoryv1 "github.com/Bladforceone/rocket/shared/pkg/proto/inventory/v1"
+	paymentv1 "github.com/Bladforceone/rocket/shared/pkg/proto/payment/v1"
+)
+
+const (
+	host        = "0.0.0.0"
+	port        = "8080"
+	readTimeout = 5 * time.Second
 )
 
 func main() {
 	r := chi.NewRouter()
 
-	orderStorage := NewOrderStorage()
+	orderStorage := storage.NewOrderStorage()
 
-	orderHandler := NewOrderHandler(orderStorage)
+	orderInventoryClient, err := inventory.NewInventoryClient()
+	if err != nil {
+		panic(err)
+	}
 
-	orderServer, err := order.NewServer(orderHandler)
+	orderPaymentClient, err := payment.NewPaymentClient()
+	if err != nil {
+		panic(err)
+	}
+
+	orderHandler := NewOrderHandler(orderStorage, orderInventoryClient, orderPaymentClient)
+
+	orderServer, err := orderdesc.NewServer(orderHandler)
 	if err != nil {
 		panic(err)
 	}
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(10 * time.Second))
+	r.Use(middleware.Timeout(20 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
 	r.Mount("/", orderServer)
 
 	server := &http.Server{
-		Addr:              net.JoinHostPort("0.0.0.0", "8080"),
+		Addr:              net.JoinHostPort(host, port),
 		Handler:           r,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: readTimeout,
 	}
 
 	go func() {
-		log.Println("Starting server on :8080")
-		err := server.ListenAndServe()
+		log.Printf("Starting server on %s:%s\n", host, port)
+		err = server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("Error starting server: %s\n", err)
 		}
 	}()
 
+	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err = server.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown: %s", err)
 	}
 
@@ -70,70 +92,149 @@ func main() {
 }
 
 type OrderHandler struct {
-	storage *OrderStorage
+	storage   *storage.OrderStorage
+	inventory *inventory.Client
+	payment   *payment.Client
 }
 
-func NewOrderHandler(storage *OrderStorage) OrderHandler {
-	return OrderHandler{storage: storage}
-}
-
-func (OrderHandler) CancelOrder(ctx context.Context, params order.CancelOrderParams) (order.CancelOrderRes, error) {
-	return &order.CancelOrderNoContent{}, nil
-}
-
-func (OrderHandler) CreateOrder(ctx context.Context, req *order.CreateOrderRequest) (order.CreateOrderRes, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (oh OrderHandler) GetOrderByUUID(ctx context.Context, params order.GetOrderByUUIDParams) (order.GetOrderByUUIDRes, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (OrderHandler) PayOrder(ctx context.Context, req *order.PayOrderRequest, params order.PayOrderParams) (order.PayOrderRes, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (OrderHandler) NewError(ctx context.Context, err error) *order.GenericErrorStatusCode {
-	// TODO implement me
-	panic("implement me")
-}
-
-type OrderStorage struct {
-	mutex  sync.RWMutex
-	orders map[string]Order
-}
-type Order struct {
-	UserUUID        string
-	PartUUIDs       []string
-	TotalPrice      float32
-	TransactionUUID string
-	PaymentMethod   string
-	Status          string
-}
-
-func NewOrderStorage() *OrderStorage {
-	return &OrderStorage{
-		orders: make(map[string]Order),
+func NewOrderHandler(storage *storage.OrderStorage, inventory *inventory.Client, payment *payment.Client) OrderHandler {
+	return OrderHandler{
+		storage:   storage,
+		inventory: inventory,
+		payment:   payment,
 	}
 }
 
-func (os *OrderStorage) Set(order Order) string {
-	os.mutex.Lock()
-	defer os.mutex.Unlock()
+func (oh OrderHandler) CancelOrder(ctx context.Context, params orderdesc.CancelOrderParams) (orderdesc.CancelOrderRes, error) {
+	orderData, err := oh.storage.Get(params.OrderUUID)
+	if err != nil {
+		return &orderdesc.NotFoundError{
+			Code:    404,
+			Message: "Order not found",
+		}, nil
+	}
 
-	orderUUID := uuid.New().String()
+	if orderData.Status == "PAID" {
+		return &orderdesc.ConflictError{
+			Code:    409,
+			Message: "The order has already been paid for and cannot be cancelled",
+		}, nil
+	}
 
-	os.orders[orderUUID] = order
+	orderData.Status = "CANCELLED"
 
-	return orderUUID
+	_ = oh.storage.Set(orderData)
+
+	return &orderdesc.CancelOrderNoContent{}, nil
 }
 
-func (os *OrderStorage) Get(orderUUID string) (Order, bool) {
-	os.mutex.RLock()
-	defer os.mutex.RUnlock()
-	ord, exists := os.orders[orderUUID]
-	return ord, exists
+func (oh OrderHandler) CreateOrder(ctx context.Context, req *orderdesc.CreateOrderRequest) (orderdesc.CreateOrderRes, error) {
+	countPart := len(req.PartUuids)
+	uuids := make([]*wrapperspb.StringValue, 0, countPart)
+	for _, partUUID := range req.PartUuids {
+		uuids = append(uuids, &wrapperspb.StringValue{Value: partUUID})
+	}
+
+	part, err := oh.inventory.ListParts(ctx, &inventoryv1.ListPartsRequest{
+		Filter: &inventoryv1.PartFilter{
+			Uuids: uuids,
+		},
+	})
+	if err != nil {
+		return &orderdesc.BadGatewayError{
+			Code:    http.StatusBadGateway,
+			Message: "error fetching parts from inventory service",
+		}, err
+	}
+
+	if len(part.Parts) != countPart {
+		return &orderdesc.BadRequestError{
+			Code:    http.StatusBadRequest,
+			Message: "one or more parts not found",
+		}, nil
+	}
+
+	var totalPrice float64
+	partUUIDs := make([]string, 0, countPart)
+	for _, p := range part.Parts {
+		totalPrice += p.Price
+		partUUIDs = append(partUUIDs, p.Uuid)
+	}
+
+	orderUUID := oh.storage.Set(&storage.Order{
+		OrderUUID:  uuid.New().String(),
+		UserUUID:   req.UserUUID,
+		PartUUIDs:  partUUIDs,
+		TotalPrice: totalPrice,
+		Status:     "PENDING_PAYMENT",
+	})
+
+	return &orderdesc.CreateOrderResponse{
+		OrderUUID:  orderdesc.NewOptString(orderUUID),
+		TotalPrice: orderdesc.NewOptFloat64(totalPrice),
+	}, nil
+}
+
+func (oh OrderHandler) GetOrderByUUID(ctx context.Context, params orderdesc.GetOrderByUUIDParams) (orderdesc.GetOrderByUUIDRes, error) {
+	orderData, err := oh.storage.Get(params.OrderUUID)
+	if err != nil {
+		return &orderdesc.NotFoundError{
+			Code:    http.StatusNotFound,
+			Message: "orderdesc with UUID '" + params.OrderUUID + "' not found",
+		}, nil
+	}
+
+	transactionUUID := orderdesc.OptString{}
+	paymentMethod := orderdesc.OptPaymentMethod{}
+
+	if orderData.Status != "PENDING_PAYMENT" {
+		transactionUUID.Value = orderData.TransactionUUID
+		transactionUUID.Set = true
+
+		paymentMethod.Value = orderdesc.PaymentMethod(orderData.PaymentMethod)
+		paymentMethod.Set = true
+	}
+
+	return &orderdesc.GetOrderResponse{
+		OrderUUID:       params.OrderUUID,
+		UserUUID:        orderData.UserUUID,
+		PartUuids:       nil,
+		TotalPrice:      orderData.TotalPrice,
+		TransactionUUID: transactionUUID,
+		PaymentMethod:   paymentMethod,
+		Status:          orderdesc.OrderStatus(orderData.Status),
+	}, nil
+}
+
+func (oh OrderHandler) PayOrder(ctx context.Context, req *orderdesc.PayOrderRequest, params orderdesc.PayOrderParams) (orderdesc.PayOrderRes, error) {
+	payMethod := req.GetPaymentMethod().Value
+	orderUUID := params.OrderUUID
+	log.Print(string(payMethod), "\n")
+	log.Printf("orderUUID: %s", orderUUID)
+	payOrder, err := oh.payment.PayOrder(ctx, &paymentv1.PayOrderRequest{
+		OrderUuid:     orderUUID,
+		PaymentMethod: paymentv1.PaymentMethod(paymentv1.PaymentMethod_value[string(payMethod)]),
+	})
+	if err != nil {
+		log.Print("tut")
+		return nil, err
+	}
+
+	err = oh.storage.Pay(orderUUID, payOrder.TransactionUuid, string(payMethod))
+	if err != nil {
+		log.Print("tam")
+		return nil, err
+	}
+
+	return &orderdesc.PayOrderResponse{TransactionUUID: orderdesc.NewOptString(orderUUID)}, nil
+}
+
+func (OrderHandler) NewError(ctx context.Context, err error) *orderdesc.GenericErrorStatusCode {
+	return &orderdesc.GenericErrorStatusCode{
+		StatusCode: http.StatusInternalServerError,
+		Response: orderdesc.GenericError{
+			Code:    orderdesc.NewOptInt(http.StatusInternalServerError),
+			Message: orderdesc.NewOptString(err.Error()),
+		},
+	}
 }

@@ -3,4 +3,6 @@ go 1.25
 use (
  "shared"
  "order"
+ "inventory"
+ "payment"
 )

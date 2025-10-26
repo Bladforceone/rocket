@@ -8,25 +8,20 @@ required:
 properties:
   order_uuid:
     type: string
-    format: uuid
     description: Уникальный идентификатор заказа.
   user_uuid:
     type: string
-    format: uuid
     description: Уникальный идентификатор пользователя, сделавшего заказ.
   part_uuids:
     type: array
     items:
       type: string
-      format: uuid
     description: Список уникальных идентификаторов частей, включенных в заказ.
   total_price:
     type: number
-    format: double
     description: Общая стоимость заказа.
   transaction_uuid:
     type: string
-    format: uuid
     description: Уникальный идентификатор транзакции, связанный с заказом.
   payment_method:
     $ref: "../components/enums/payment_method.yaml"

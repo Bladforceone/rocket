@@ -1,11 +1,11 @@
 type: string
 description: Метод оплаты
 enum:
- - UNKNOWN
- - CARD
- - SBP
- - CREDIT_CARD
- - INVESTOR_MONEY
+ - PAYMENT_METHOD_UNKNOWN
+ - PAYMENT_METHOD_CARD
+ - PAYMENT_METHOD_SBP
+ - PAYMENT_METHOD_CREDIT_CARD
+ - PAYMENT_METHOD_INVESTOR_MONEY
 
 x-enum-descriptions:
     UNKNOWN: Неизвестный метод оплаты
