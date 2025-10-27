@@ -40,16 +40,11 @@ func ToRepoPartFilter(f *serviceModel.PartFilter) *repoModel.PartFilter {
 		categories = append(categories, repoModel.Category(category))
 	}
 
-	manufacturers := make([]repoModel.Manufacturer, len(f.Manufacturers))
-	for _, manufacturer := range f.Manufacturers {
-		manufacturers = append(manufacturers, repoModel.Manufacturer(manufacturer))
-	}
-
 	return &repoModel.PartFilter{
-		UUIDs:         append([]string(nil), f.UUIDs...),
-		Names:         append([]string(nil), f.Names...),
-		Categories:    categories,
-		Manufacturers: manufacturers,
-		Tags:          append([]string(nil), f.Tags...),
+		UUIDs:                 append([]string(nil), f.UUIDs...),
+		Names:                 append([]string(nil), f.Names...),
+		Categories:            categories,
+		ManufacturerCountries: f.ManufacturerCountries,
+		Tags:                  append([]string(nil), f.Tags...),
 	}
 }

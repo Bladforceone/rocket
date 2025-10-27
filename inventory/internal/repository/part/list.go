@@ -8,8 +8,8 @@ import (
 	repoModel "github.com/Bladforceone/rocket/inventory/internal/repository/model"
 )
 
-func (r *repository) List(ctx context.Context, filter model.PartFilter) ([]*model.Part, error) {
-	fltr := converter.ToRepoPartFilter(&filter)
+func (r *repository) List(ctx context.Context, filter *model.PartFilter) ([]*model.Part, error) {
+	fltr := converter.ToRepoPartFilter(filter)
 
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
@@ -26,7 +26,7 @@ func (r *repository) List(ctx context.Context, filter model.PartFilter) ([]*mode
 		if !categoryMatches(part.Category, fltr.Categories) {
 			continue
 		}
-		if !manufacturerMatches(part.Manufacturer, fltr.Manufacturers) {
+		if !countryMatches(part.Manufacturer, fltr.ManufacturerCountries) {
 			continue
 		}
 		if !tagsMatches(part.Tags, fltr.Tags) {
@@ -75,12 +75,12 @@ func categoryMatches(cat repoModel.Category, categories []repoModel.Category) bo
 	return false
 }
 
-func manufacturerMatches(m repoModel.Manufacturer, manufacturers []repoModel.Manufacturer) bool {
+func countryMatches(m repoModel.Manufacturer, manufacturers []string) bool {
 	if len(manufacturers) == 0 {
 		return true
 	}
 	for _, mf := range manufacturers {
-		if m.Country == mf.Country {
+		if m.Country == mf {
 			return true
 		}
 	}

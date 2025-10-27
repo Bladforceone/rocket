@@ -1,17 +1,19 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/Bladforceone/rocket/inventory/internal/repository/part"
-	desc "github.com/Bladforceone/rocket/shared/pkg/proto/inventory/v1"
+	api "github.com/Bladforceone/rocket/inventory/internal/api/inventory/v1"
+	partServ "github.com/Bladforceone/rocket/inventory/internal/service/part"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	partRepo "github.com/Bladforceone/rocket/inventory/internal/repository/part"
+	desc "github.com/Bladforceone/rocket/shared/pkg/proto/inventory/v1"
 )
 
 func main() {
@@ -21,13 +23,13 @@ func main() {
 		return
 	}
 
-	_ = part.NewRepository()
-
-	inventoryServer := &InventoryServer{}
+	repo := partRepo.NewRepository()
+	serv := partServ.NewService(repo)
+	inApi := api.NewAPI(serv)
 
 	s := grpc.NewServer()
 
-	desc.RegisterInventoryServiceServer(s, inventoryServer)
+	desc.RegisterInventoryServiceServer(s, inApi)
 
 	reflection.Register(s)
 
@@ -38,24 +40,11 @@ func main() {
 		}
 	}()
 
+	//Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down gRPC server...")
 	s.GracefulStop()
 	log.Println("Server gracefully stopped")
-}
-
-type InventoryServer struct {
-	desc.UnimplementedInventoryServiceServer
-}
-
-func (s *InventoryServer) ListParts(ctx context.Context, request *desc.ListPartsRequest) (*desc.ListPartsResponse, error) {
-	//TODO
-	panic("implement me")
-}
-
-func (s *InventoryServer) GetPart(ctx context.Context, request *desc.GetPartRequest) (*desc.GetPartResponse, error) {
-	//TODO
-	panic("implement me")
 }

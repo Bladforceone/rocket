@@ -3,11 +3,11 @@ package model
 import "time"
 
 type PartFilter struct {
-	UUIDs         []string
-	Names         []string
-	Categories    []Category
-	Manufacturers []Manufacturer
-	Tags          []string
+	UUIDs                 []string
+	Names                 []string
+	Categories            []Category
+	ManufacturerCountries []string
+	Tags                  []string
 }
 
 type Part struct {

@@ -7,7 +7,7 @@ import (
 	"github.com/Bladforceone/rocket/inventory/internal/repository/converter"
 )
 
-func (r *repository) GetByUUID(ctx context.Context, uuid string) (*model.Part, error) {
+func (r *repository) Get(ctx context.Context, uuid string) (*model.Part, error) {
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 
