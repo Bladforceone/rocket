@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 
-	"github.com/Bladforceone/rocket/order/internal/client/grpc/converter"
+	"github.com/Bladforceone/rocket/order/internal/client/converter"
 	modelService "github.com/Bladforceone/rocket/order/internal/model"
 )
 
