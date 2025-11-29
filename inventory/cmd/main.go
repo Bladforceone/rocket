@@ -7,12 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	api "github.com/Bladforceone/rocket/inventory/internal/api/inventory/v1"
-	partServ "github.com/Bladforceone/rocket/inventory/internal/service/part"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	api "github.com/Bladforceone/rocket/inventory/internal/api/inventory/v1"
 	partRepo "github.com/Bladforceone/rocket/inventory/internal/repository/part"
+	partServ "github.com/Bladforceone/rocket/inventory/internal/service/part"
 	desc "github.com/Bladforceone/rocket/shared/pkg/proto/inventory/v1"
 )
 
@@ -40,7 +40,7 @@ func main() {
 		}
 	}()
 
-	//Graceful shutdown
+	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
