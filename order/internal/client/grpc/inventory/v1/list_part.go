@@ -7,11 +7,11 @@ import (
 	modelService "github.com/Bladforceone/rocket/order/internal/model"
 )
 
-func (c *client) ListPart(ctx context.Context, order *modelService.Order) ([]float64, error) {
-	parts, err := c.inventory.ListParts(ctx, converter.OrderToListRequest(order))
+func (c *client) ListPart(ctx context.Context, filter *modelService.PartFilter) ([]modelService.Part, error) {
+	parts, err := c.generatedClient.ListParts(ctx, converter.FilterToListRequest(filter))
 	if err != nil {
 		return nil, err
 	}
 
-	return converter.PartsPriceToService(parts), nil
+	return converter.PartsToService(parts), nil
 }

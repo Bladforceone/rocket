@@ -11,5 +11,5 @@ type PaymentClient interface {
 }
 
 type InventoryClient interface {
-	ListPart(ctx context.Context, order *modelService.Order) ([]float64, error)
+	ListPart(ctx context.Context, filter *modelService.PartFilter) ([]modelService.Part, error)
 }
